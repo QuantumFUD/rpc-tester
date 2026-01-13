@@ -4,6 +4,11 @@ use super::{ReportResults, TestError};
 use assert_json_diff::assert_json_include;
 use serde_json::Value;
 
+/// Fields that are client-specific extensions and should be ignored during comparison.
+/// For example, Nethermind includes an "error" field on reverted transaction receipts
+/// which is not part of the Ethereum JSON-RPC specification.
+const IGNORED_FIELDS: &[&str] = &["error"];
+
 /// Prints test results to console.
 ///
 /// Returns error if RPC1 is missing/mismatching any element against RPC2 on any rpc method.
@@ -19,6 +24,10 @@ pub(crate) fn report(results_by_block: ReportResults) -> eyre::Result<()> {
             match result {
                 Ok(_) => {}
                 Err(TestError::Diff { rpc1, rpc2, args }) => {
+                    // Filter out client-specific extension fields before comparison
+                    let rpc1 = filter_ignored_fields(rpc1);
+                    let rpc2 = filter_ignored_fields(rpc2);
+
                     // While results are different, we only report it as error if __RPC1__ is
                     // missing/mismatching any element against RPC2.
                     if let Some(diffs) = verify_missing_or_mismatch(rpc1, rpc2) {
@@ -52,6 +61,21 @@ pub(crate) fn report(results_by_block: ReportResults) -> eyre::Result<()> {
         Ok(())
     } else {
         Err(eyre::eyre!("Failed."))
+    }
+}
+
+/// Recursively removes fields from JSON values that are in the [`IGNORED_FIELDS`] list.
+/// This is used to filter out client-specific extensions before comparison.
+fn filter_ignored_fields(value: Value) -> Value {
+    match value {
+        Value::Object(mut map) => {
+            for field in IGNORED_FIELDS {
+                map.remove(*field);
+            }
+            Value::Object(map.into_iter().map(|(k, v)| (k, filter_ignored_fields(v))).collect())
+        }
+        Value::Array(arr) => Value::Array(arr.into_iter().map(filter_ignored_fields).collect()),
+        other => other,
     }
 }
 
