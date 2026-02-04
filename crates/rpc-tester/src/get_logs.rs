@@ -5,7 +5,8 @@ use alloy_provider::{network::AnyNetwork, Provider};
 use alloy_rpc_types::{Filter, Log};
 
 /// The result type returned by `get_logs`.
-pub type GetLogsResult<T> = Result<T, alloy_json_rpc::RpcError<alloy_transport::TransportErrorKind>>;
+pub type GetLogsResult<T> =
+    Result<T, alloy_json_rpc::RpcError<alloy_transport::TransportErrorKind>>;
 
 /// Fetches logs with automatic retry when the RPC returns a "max results exceeded" error.
 ///
@@ -47,9 +48,8 @@ fn parse_max_results_error<E: std::fmt::Display>(error: &E) -> Option<(BlockNumb
     let range_part = &msg[range_start + range_prefix.len()..];
 
     // Parse "FROM-TO" (stop at first non-numeric, non-dash char)
-    let range_end = range_part
-        .find(|c: char| !c.is_ascii_digit() && c != '-')
-        .unwrap_or(range_part.len());
+    let range_end =
+        range_part.find(|c: char| !c.is_ascii_digit() && c != '-').unwrap_or(range_part.len());
     let range_str = &range_part[..range_end];
 
     let mut parts = range_str.split('-');
@@ -79,8 +79,7 @@ mod tests {
 
     #[test]
     fn test_parse_with_trailing_text() {
-        let error_msg =
-            "query exceeds max results 20000, retry with the range 100-200, extra info";
+        let error_msg = "query exceeds max results 20000, retry with the range 100-200, extra info";
         let result = parse_max_results_error(&error_msg);
         assert_eq!(result, Some((100, 200)));
     }
